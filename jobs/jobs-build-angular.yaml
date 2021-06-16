@@ -1,0 +1,89 @@
+# Parameters
+# ---------
+parameters:
+- name: nodeJSVersion
+  type: string
+- name: angularWorkingDir
+  type: string
+- name: angularBuildOutputFolder
+  type: string
+- name: angularArtifactName
+  type: string
+
+# Jobs
+# ---------
+jobs:
+
+# Job - Build Angular Solution
+# ---------
+- job: '${{ parameters.angularArtifactName }}'
+  displayName: Build Angular
+  steps:
+
+# Bash - Show Parameter Variables
+# ---------
+  - bash: |
+      echo ''
+      echo '===== Build Angular ====='
+      echo ''
+      echo '    ===== Parameters ====='
+      echo '    nodeJSVersion:              ${{ parameters.nodeJSVersion }}'
+      echo '    angularWorkingDir:          ${{ parameters.angularWorkingDir }}'
+      echo '    angularBuildOutputFolder:   ${{ parameters.angularBuildOutputFolder }}'
+      echo '    angularArtifactName:        ${{ parameters.angularArtifactName }}'
+      echo ''
+    displayName: Debug - Parameters
+
+# Task - Install Node.js
+# ---------
+  - task: NodeTool@0                              
+    displayName: Install Node.js                  
+    inputs:                                       
+      versionSpec: '${{ parameters.nodeJSVersion }}'        
+      checkLatest: true
+
+# Task - Install Angular CLI
+# ---------
+  - task: Npm@1                                   
+    displayName: Install Angular CLI              
+    inputs:                                       
+      command: custom  
+      workingDir: '${{ parameters.angularWorkingDir }}' 
+      verbose: false  
+      customCommand: install -g @angular/cli 
+
+# Task - Install NPM Modules
+# ---------
+  - task: Npm@1                                    
+    displayName: Install NPM Modules               
+    inputs:                                        
+      command: ci
+      workingDir: '${{ parameters.angularWorkingDir }}' 
+
+# Task - Build NPM Modules
+# ---------
+  - task: Npm@1                                    
+    displayName: Build NPM Modules                 
+    inputs:                                        
+      command: custom  
+      workingDir: '${{ parameters.angularWorkingDir }}' 
+      verbose: false  
+      customCommand: 'run build'   
+
+# Task - Copy the client to the staging directory
+# ---------
+  - task: CopyFiles@2
+    displayName: Copy Files into Staging Directory
+    inputs:
+      sourceFolder: '${{ parameters.angularBuildOutputFolder }}'  
+      contents: '**/*' 
+      targetFolder: '$(Build.ArtifactStagingDirectory)'
+      cleanTargetFolder: true
+
+# Task - Publish Files into Artifact Directory
+# ---------
+  - task: PublishBuildArtifacts@1
+    displayName: Publish Files into Artifact Directory
+    inputs:
+      pathtoPublish: '$(Build.ArtifactStagingDirectory)' 
+      artifactName: '${{ parameters.angularArtifactName }}' 

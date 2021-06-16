@@ -1,0 +1,98 @@
+# Parameters
+# ---------
+parameters:
+- name: environment
+  type: string
+- name: serviceConnection
+  type: string
+- name: angularArtifactName
+  type: string
+- name: storageAccountName
+  type: string
+- name: cdnProfileName
+  type: string
+- name: cdnEndpoint
+  type: string
+- name: purgeCDN
+  type: string
+- name: dependsOn
+  type: string
+
+# Jobs
+# ---------
+jobs:
+
+# Job - Deploy Angular Website
+# ---------
+- deployment: AngularWebsiteDeploy
+  dependsOn: ${{ parameters.dependsOn }}
+  displayName: Deploy Angular Website
+  environment: ${{ parameters.environment }}
+  workspace:
+    clean: all
+  strategy:
+    runOnce:
+      deploy:
+        steps:  
+
+        # Bash - Show Parameter Variables
+        # ---------
+          - bash: |
+              echo ''
+              echo '===== Deploy Angular Website ====='
+              echo ''
+              echo '    ===== Parameters ====='
+              echo '    environment:              ${{ parameters.environment }}'
+              echo '    serviceConnection:        ${{ parameters.serviceConnection }}'
+              echo '    angularArtifactName:      ${{ parameters.angularArtifactName }}'
+              echo '    storageAccountName:       ${{ parameters.storageAccountName }}'
+              echo '    cdnProfileName:           ${{ parameters.cdnProfileName }}'
+              echo '    cdnEndpoint:              ${{ parameters.cdnEndpoint }}'
+              echo '    purgeCDN:                 ${{ parameters.purgeCDN }}'
+              echo '    dependsOn:                ${{ parameters.dependsOn }}'
+              echo ''
+            displayName: Debug - Parameters
+
+        # Task - Clear $web Container
+        # ---------
+          - task: AzureCLI@2
+            displayName: Clear $web Container
+            inputs:
+              azureSubscription: '${{ parameters.serviceConnection }}'
+              scriptType: bash
+              scriptLocation: inlineScript
+              inlineScript: |
+                az version
+                az storage blob delete-batch \
+                  --account-name ${{ parameters.storageAccountName }} \
+                  --source '$web'
+
+        # Task - Upload to Blob Storage
+        # ---------
+          - task: AzureFileCopy@4
+            displayName: Upload to Blob Storage
+            condition: succeeded()
+            inputs:
+              sourcePath: '$(Pipeline.Workspace)\${{ parameters.angularArtifactName }}\*'
+              azureSubscription: '${{ parameters.serviceConnection }}'
+              destination: 'AzureBlob'
+              storage: '${{ parameters.storageAccountName }}'
+              containerName: '$web'
+              additionalArgumentsForBlobCopy: '--recursive=true'
+
+        # Task - Purge CDN Cache
+        # ---------
+          - task: AzureCLI@2
+            displayName: Purge CDN Cache
+            condition: and(succeeded(), eq(${{ parameters.purgeCDN }}, 'true'))
+            inputs:
+              azureSubscription: '${{ parameters.serviceConnection }}'
+              scriptType: bash
+              scriptLocation: inlineScript
+              inlineScript: |
+                az version
+                az cdn endpoint purge \
+                  --resource-group $(resourceGroup) \
+                  --name $(cdnEndpoint) \
+                  --profile-name $(cdnProfileName) \
+                  --content-paths '/*'

@@ -1,0 +1,145 @@
+# Build numbering format
+name: $(BuildID)
+
+# Triggers
+# ---------
+trigger:                                            
+  batch: true                                       
+  branches:
+    include:                                        
+    - bugfix/*
+    - master
+  tags:
+    include:                                        
+    - v*
+  paths:
+    exclude:                                        
+    - README.md                 
+
+pr:                                                 
+- master
+
+pool:                                               
+  vmImage: windows-latest                           
+
+# Variables
+# ---------
+variables:
+- template: variables/variables-global.yaml         
+- template: variables/variables-development.yaml
+
+# Stages
+# ------
+stages:                                             
+
+# Tests
+# -----
+#- stage: TestDevelopment
+#  displayName: Tests (Javascript)
+  #condition: eq(variables.isTag, 'False')
+#  jobs:
+#  - template: jobs/jobs-tests-javascript.yaml
+
+# Build
+# -----
+- stage: Build
+  displayName: Build - Development
+  jobs:
+    - template: 'jobs/jobs-build-arm-templates.yaml'
+      parameters:
+        armTemplateProjectFolder:                 '$(armTemplateProjectFolder)'
+        armTemplateArtifactName:                  ${{ variables['armTemplateArtifactName'] }}
+
+    - template: 'jobs/jobs-build-angular.yaml'
+      parameters:
+        nodeJSVersion:                            '$(nodeJSVersion)'
+        angularWorkingDir:                        '$(angularWorkingDir)'
+        angularBuildOutputFolder:                 '$(angularBuildOutputFolder)'
+        angularArtifactName:                      ${{ variables['angularArtifactName'] }}
+
+    - template: 'jobs/jobs-build-dotnetcore.yaml'
+      parameters:
+        publishableProjects:                      '$(webAPIProjects)'
+        buildableProjects:                        '$(buildableProjects)'
+        dotNetArtifactName:                       ${{ variables['webAPIArtifactName'] }}
+        buildConfiguration:                       '$(buildConfiguration)'
+        buildCode:                                true
+
+    - template: 'jobs/jobs-build-dotnetcore.yaml'
+      parameters:
+        publishableProjects:                      '$(functionAPIProjects)'
+        buildableProjects:                        '$(buildableProjects)'
+        dotNetArtifactName:                       ${{ variables['functionAPIArtifactName'] }}
+        buildConfiguration:                       '$(buildConfiguration)'
+        buildCode:                                false
+
+
+# Code Coverage
+# -----
+#- stage: CodeCoverage
+#  displayName: Code Coverage - Development
+#  condition: and(succeeded(), eq(variables.hasTests, 'True'))
+#  jobs:
+#  - template: 'jobs/jobs-test-code-coverage.yaml'
+#    parameters:
+#      buildConfiguration:       '$(buildConfiguration)'
+#      dotNetTestProject:        '$(dotNetTestProject)'
+
+  # Deploy
+  # ------
+- stage: Deploy 
+  displayName: Deploy - Development
+  jobs:
+    - template: jobs/jobs-deploy-spa-arm-template.yaml
+      parameters:
+        environment:                              '$(environment)'
+        serviceConnection:                        '$(serviceConnection)'
+        subscriptionId:                           '$(subscriptionId)'
+        resourceGroup:                            '$(resourceGroup)'
+        storageAccountName:                       '$(storageAccountName)'
+        cdnEndpointName:                          '$(cdnEndpointName)'
+        cdnProfileName:                           '$(cdnProfileName)'
+        deploymentLocation:                       '$(deploymentLocation)'
+        armTemplateArtifactName:                  ${{ variables['armTemplateArtifactName'] }}
+        storageAccountCSMFilePath:                '$(storageAccountCSMFilePath)'
+        storageAccountCSMParametersFile:          '$(storageAccountCSMParametersFile)'
+        deployCDN:                                '${{ variables.isProduction }}'
+        cdnCSMFilePath:                           '$(cdnCSMFilePath)'
+        cdnCSMParametersFile:                     '$(cdnCSMParametersFile)'
+
+    - job: job_deploy_code
+      displayName: Deploy Some Code
+      dependsOn: armTemplates
+      variables: 
+        myVarFromDeploymentJob: $[ dependencies.armTemplates.outputs['deploy_Development.setvarStep.myOutputVar'] ]
+      steps: 
+        - script: "echo $(myVarFromDeploymentJob)"
+          name: echovar
+
+    - template: jobs/jobs-deploy-angular-website.yaml
+      parameters:
+        environment:                              '$(environment)'
+        serviceConnection:                        '$(serviceConnection)'
+        angularArtifactName:                      ${{ variables['angularArtifactName'] }}
+        storageAccountName:                       '$(storageAccountName)'
+        cdnProfileName:                           '$(cdnProfileName)'
+        cdnEndpoint:                              '$(cdnEndpoint)'
+        purgeCDN:                                 '${{ variables.isProduction }}'
+        dependsOn:                                ${{ variables['armTemplateArtifactName'] }}
+
+    - template: jobs/jobs-deploy-web-api-arm-template.yaml
+      parameters:
+        environment:                              '$(environment)'
+        serviceConnection:                        '$(serviceConnection)'
+        subscriptionId:                           '$(subscriptionId)'
+        resourceGroup:                            '$(resourceGroup)'
+        deploymentLocation:                       '$(deploymentLocation)'
+        armTemplateArtifactName:                  ${{ variables['armTemplateArtifactName'] }}
+        appServiceCSMFilePath:                    '$(appServiceCSMFilePath)'
+        appServiceCSMParametersFile:              '$(appServiceCSMParametersFile)'
+
+    #- template: jobs/jobs-deploy-web-api.yaml
+    #  parameters:
+    #    environment:                              '$(environment)'
+    #    serviceConnection:                        '$(serviceConnection)'
+    #    webAppName:                               '$(webAppName)'

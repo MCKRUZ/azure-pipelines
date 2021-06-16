@@ -1,0 +1,71 @@
+# Parameters
+# ---------
+parameters:
+- name: environment
+  type: string
+- name: serviceConnection
+  type: string
+- name: subscriptionId
+  type: string
+- name: resourceGroup
+  type: string
+- name: deploymentLocation
+  type: string
+- name: armTemplateArtifactName
+  type: string
+- name: appServiceCSMFilePath
+  type: string
+- name: appServiceCSMParametersFile
+  type: string
+
+
+# Jobs
+# ---------
+jobs:
+
+# Job - Deploy Web API ARM Template
+# ---------
+- deployment: DeployWebAPIARMTemplate
+  displayName: Deploy Web API ARM Template
+  environment: ${{ parameters.environment }}
+  workspace:
+    clean: all
+  strategy:
+    runOnce:
+      deploy:
+        steps:  
+
+        # Bash - Show Parameter Variables
+        # ---------
+          - bash: |
+              echo ''
+              echo '===== Deploy Web API ARM Template ====='
+              echo ''
+              echo '    ===== Parameters ====='
+              echo '    environment:                      ${{ parameters.environment }}'
+              echo '    serviceConnection:                ${{ parameters.serviceConnection }}'
+              echo '    subscriptionId:                   ${{ parameters.subscriptionId }}'
+              echo '    resourceGroup:                    ${{ parameters.resourceGroup }}'
+              echo '    deploymentLocation:               ${{ parameters.deploymentLocation }}'
+              echo '    armTemplateArtifactName:          ${{ parameters.armTemplateArtifactName }}'
+              echo '    appServiceCSMFilePath:            ${{ parameters.appServiceCSMFilePath }}'
+              echo '    appServiceCSMParametersFile:      ${{ parameters.appServiceCSMParametersFile }}'
+              echo ''
+            displayName: Debug - Parameters
+
+        # Task - Deploy App Service ARM Template
+        # ---------
+          - task: AzureResourceManagerTemplateDeployment@3
+            displayName: Deploy App Service ARM Template
+            inputs:
+              deploymentScope: 'Resource Group'
+              azureResourceManagerConnection: '${{ parameters.serviceConnection }}'
+              subscriptionId: '${{ parameters.subscriptionId }}'
+              action: 'Create Or Update Resource Group'
+              resourceGroupName: '${{ parameters.resourceGroup }}'
+              location: '${{ parameters.deploymentLocation }}'
+              templateLocation: 'Linked artifact'
+              csmFile: '$(Pipeline.Workspace)\${{ parameters.armTemplateArtifactName }}\${{ parameters.appServiceCSMFilePath }}'
+              csmParametersFile: '$(Pipeline.Workspace)\${{ parameters.armTemplateArtifactName }}\${{ parameters.appServiceCSMParametersFile }}'
+              deploymentMode: 'Incremental'
+              deploymentName: 'appServiceDeployment'

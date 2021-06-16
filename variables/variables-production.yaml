@@ -1,0 +1,13 @@
+# These variable names are placeholders, put your own in as needed
+variables:
+
+  # ARM
+  serviceConnection:    webapp-rg-prod-conn
+  subscriptionId:       00000000-0000-0000-0000-000000000000
+  resourceGroup:        rg-webapp-prod-001
+  deploymentLocation:   eastus
+  storageAccount:       ststaticwebprod001         
+  cdnProfileName:       cdnp-webapp-prod-001
+  webAppName:           app-webapp-prod-001.azurewebsites.net
+  blobContainer:        bcassets001
+  cdnEndpoint:          cdn-webapp-prod-001.azurewebsites.net

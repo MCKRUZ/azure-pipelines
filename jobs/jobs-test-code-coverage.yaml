@@ -1,0 +1,46 @@
+# Parameters
+# ---------
+parameters:
+- name: dotNetTestProject
+  type: string
+- name: buildConfiguration
+  type: string
+
+# Jobs
+# ---------
+jobs:
+
+# Job - Run Code Coverage
+# ---------
+- job: CodeCoverage
+  displayName: Run Code Coverage
+  steps:
+
+# Bash - Show Parameter Variables
+# ---------
+  - bash: |
+      echo ''
+      echo '===== Run Code Coverage ====='
+      echo ''
+      echo '    ===== Parameters ====='
+      echo '    dotNetTestProject:          ${{ parameters.dotNetTestProject }}'
+      echo '    buildConfiguration:         ${{ parameters.buildConfiguration }}'
+      echo ''
+    displayName: Debug - Parameters
+
+# Task - Run Code Coverage
+# ---------
+  - task: DotNetCoreCLI@2
+    inputs:
+      command: test
+      projects: '${{ parameters.dotNetTestProject }}' 
+      arguments: '--configuration ${{ parameters.buildConfiguration }} --collect "Code coverage"'
+
+# Task - Log Code Coverage
+# ---------
+  - script: dotnet test ${{ parameters.dotNetTestProject }} --logger trx --collect "Code coverage"
+  - task: PublishTestResults@2
+    inputs:
+      testRunner: VSTest
+      testResultsFiles: '**/*.trx'
+

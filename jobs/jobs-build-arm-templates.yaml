@@ -1,0 +1,47 @@
+# Parameters
+# ---------
+parameters:
+- name: armTemplateProjectFolder
+  type: string
+- name: armTemplateArtifactName
+  type: string
+
+# Jobs
+# ---------
+jobs:
+
+# Job - Build ARM Templates
+# ---------
+- job: '${{ parameters.armTemplateArtifactName }}'
+  displayName: Build ARM Templates
+  steps:
+
+# Bash - Show Parameter Variables
+# ---------
+  - bash: |
+      echo ''
+      echo '===== Build ARM Templates ====='
+      echo ''
+      echo '    ===== Parameters ====='
+      echo '    armTemplateProjectFolder:   ${{ parameters.armTemplateProjectFolder }}'
+      echo '    armTemplateArtifactName:    ${{ parameters.armTemplateArtifactName }}'
+      echo ''
+    displayName: Debug - Parameters
+
+# Task - Copy ARM Templates
+# ---------
+  - task: CopyFiles@2
+    displayName: Copy ARM Templates
+    inputs:
+      flattenFolders: true
+      Contents: '${{ parameters.armTemplateProjectFolder }}\**\*.json' 
+      TargetFolder: '$(Build.ArtifactStagingDirectory)'
+
+# Task - Create Build Artifacts
+# ---------
+  - task: PublishBuildArtifacts@1
+    displayName: Publish Files into Artifact Directory
+    condition: succeeded()
+    inputs:
+      pathtoPublish: '$(Build.ArtifactStagingDirectory)'  
+      artifactName: '${{ parameters.armTemplateArtifactName }}'

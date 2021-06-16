@@ -1,0 +1,187 @@
+# Parameters
+# ---------
+parameters:
+- name: environment
+  type: string
+- name: serviceConnection
+  type: string
+- name: subscriptionId
+  type: string
+- name: resourceGroup
+  type: string
+- name: storageAccountName
+  type: string
+- name: cdnEndpointName
+  type: string
+- name: cdnProfileName
+  type: string
+- name: deploymentLocation
+  type: string
+- name: armTemplateArtifactName
+  type: string
+- name: storageAccountCSMFilePath
+  type: string
+- name: storageAccountCSMParametersFile
+  type: string
+- name: deployCDN
+  type: boolean
+  default: false
+- name: cdnCSMFilePath
+  type: string
+- name: cdnCSMParametersFile
+  type: string
+- name: overrideParameterFile
+  type: boolean
+  default: true
+
+
+# Jobs
+# ---------
+jobs:
+
+# Job - Deploy SPA ARM Template
+# ---------
+- #deployment: '${{ parameters.armTemplateArtifactName }}'
+  deployment: armTemplates
+  variables:
+    storageAccountNameCalculated: ''
+    cdnEndpointNameCalculated: ''
+  displayName: Deploy SPA ARM Template
+  environment: ${{ parameters.environment }}
+  workspace:
+    clean: all
+  strategy:
+    runOnce:
+      deploy:
+        steps:  
+
+        # Bash - Show Input Parameter Variables
+        # ---------
+          - bash: |
+              echo ''
+              echo '===== Deploy SPA ARM Template Input Variables ====='
+              echo ''
+              echo '    ===== Parameters ====='
+              echo '    environment:                      ${{ parameters.environment }}'
+              echo '    serviceConnection:                ${{ parameters.serviceConnection }}'
+              echo '    subscriptionId:                   ${{ parameters.subscriptionId }}'
+              echo '    resourceGroup:                    ${{ parameters.resourceGroup }}'
+              echo '    storageAccountName:               ${{ parameters.storageAccountName }}'
+              echo '    cdnEndpointName:                  ${{ parameters.cdnEndpointName }}'
+              echo '    cdnProfileName:                   ${{ parameters.cdnProfileName }}'
+              echo '    deploymentLocation:               ${{ parameters.deploymentLocation }}'
+              echo '    armTemplateArtifactName:          ${{ parameters.armTemplateArtifactName }}'
+              echo '    storageAccountCSMFilePath:        ${{ parameters.storageAccountCSMFilePath }}'
+              echo '    storageAccountCSMParametersFile:  ${{ parameters.storageAccountCSMParametersFile }}'
+              echo '    deployCDN:                        ${{ parameters.deployCDN }}'
+              echo '    cdnCSMFilePath:                   ${{ parameters.cdnCSMFilePath }}'
+              echo '    cdnCSMParametersFile:             ${{ parameters.cdnCSMParametersFile }}'
+              echo ''
+            displayName: Debug - Input Parameters
+
+        # Task - Deploy Storage Account ARM Template
+        # ---------
+          - task: AzureResourceManagerTemplateDeployment@3
+            displayName: Deploy Storage Account ARM Template
+            inputs:
+              deploymentScope: 'Resource Group'
+              azureResourceManagerConnection: '${{ parameters.serviceConnection }}'
+              subscriptionId: '${{ parameters.subscriptionId }}'
+              action: 'Create Or Update Resource Group'
+              resourceGroupName: '${{ parameters.resourceGroup }}'
+              location: '${{ parameters.deploymentLocation }}'
+              templateLocation: 'Linked artifact'
+              csmFile: '$(Pipeline.Workspace)\${{ parameters.armTemplateArtifactName }}\${{ parameters.storageAccountCSMFilePath }}'
+              csmParametersFile: '$(Pipeline.Workspace)\${{ parameters.armTemplateArtifactName }}\${{ parameters.storageAccountCSMParametersFile }}'
+              deploymentMode: 'Incremental'
+              deploymentName: 'storageAccountDeployment'
+              deploymentOutputs: 'storageAccountDeploymentOutput'
+              ${{ if eq(parameters.overrideParameterFile, 'true') }}:
+                overrideParameters: '-formatNames true -environment ${{ parameters.environment }} -storageAccountName ${{ parameters.storageAccountName }}'
+
+        # Task - Retrieve Output Variable
+        #----------
+          - task: AzurePowerShell@5
+            displayName: Retrieve Output Variables
+            name: retrieveStorageAccountDeploymentOutput
+            condition: succeeded()
+            inputs:
+               azureSubscription: '${{ parameters.serviceConnection }}'
+               scriptType: 'inlineScript'
+               azurePowerShellVersion: 'LatestVersion'
+               inline: |
+                 $armOutput = '$(storageAccountDeploymentOutput)' | ConvertFrom-Json
+                 Write-Output "##vso[task.setvariable variable=storageAccountNameCalculated;]$($armOutput.storageAccountName.value)"
+
+
+          - template: steps/set-custom-variable.yml@templates
+            parameters:
+               variableName: myOutputVar
+               command: 'this is the deployment variable value'
+
+          #- script: echo "##vso[task.setvariable variable=myOutputVar;isOutput=true]this is the deployment variable value"
+          #  name: setvarStep
+
+          #- script: echo $(setvarStep.myOutputVar)
+          #  name: echovar
+
+
+
+        # Task - Add Static Hosting to Storage Account
+        # ---------
+          - task: AzurePowerShell@5
+            displayName: Add Static Hosting to Storage Account
+            condition: succeeded()
+            inputs:
+              azureSubscription: '${{ parameters.serviceConnection }}'
+              scriptType: 'inlineScript'
+              azurePowerShellVersion: latestVersion
+              inline: |           
+                $StorageAccount = Get-AzStorageAccount -Name $(storageAccountNameCalculated) -ResourceGroupName '${{ parameters.resourceGroup }}'
+                Enable-AzStorageStaticWebsite -Context $StorageAccount.Context -IndexDocument index.html -ErrorDocument404Path index.html
+
+        # Task - Deploy CDN ARM Template
+        # ---------
+          - task: AzureResourceManagerTemplateDeployment@3
+            displayName: Deploy CDN ARM Template
+            condition: and(succeeded(), eq(${{ parameters.deployCDN }}, 'true'))
+            inputs:
+              deploymentScope: 'Resource Group'
+              azureResourceManagerConnection: '${{ parameters.serviceConnection }}'
+              subscriptionId: '${{ parameters.subscriptionId }}'
+              action: 'Create Or Update Resource Group'
+              resourceGroupName: '${{ parameters.resourceGroup }}'
+              location: '${{ parameters.deploymentLocation }}'
+              templateLocation: 'Linked artifact'
+              csmFile: '$(Pipeline.Workspace)\${{ parameters.armTemplateArtifactName }}\${{ parameters.cdnCSMFilePath }}'
+              csmParametersFile: '$(Pipeline.Workspace)\${{ parameters.armTemplateArtifactName }}\${{ parameters.cdnCSMParametersFile }}'
+              deploymentMode: 'Incremental'
+              deploymentName: 'cdnDeployment'
+              deploymentOutputs: 'CDNDeployOutput'
+              ${{ if eq(parameters.overrideParameterFile, 'true') }}:
+                overrideParameters: '-formatNames true -environment ${{ parameters.environment }} -cdnEndpointName ${{ parameters.cdnEndpointName }} -cdnProfileName ${{ parameters.cdnProfileName }} -storageAccountPrimaryEndpoint -storageAccountPrimaryEndpoint $storageAccountNameCalculated.z13.web.core.windows.net'
+
+        # Task - Retrieve Output Variable
+        #----------
+          - task: AzurePowerShell@5
+            displayName: Retrieve Output Variables
+            condition: and(succeeded(), eq(${{ parameters.deployCDN }}, 'true'))
+            inputs:
+               azureSubscription: '${{ parameters.serviceConnection }}'
+               scriptType: 'inlineScript'
+               azurePowerShellVersion: 'LatestVersion'
+               inline: |
+                 $armOutput = '$(CDNDeployOutput)' | ConvertFrom-Json
+                 Write-Output "##vso[task.setvariable variable=cdnEndpointNameCalculated;isOutput=true]$($armOutput.cdnEndpointName)" 
+
+        # Bash - Show Output Parameter Variables
+        # ---------
+          - bash: |
+              echo ''
+              echo '===== Deploy SPA ARM Template Output Variables ====='
+              echo ''
+              echo '    ===== Parameters ====='
+              echo '    storageAccountNameCalculated:               $(storageAccountNameCalculated)'
+              echo '    cdnEndpointName:                            $(cdnEndpointNameCalculated)'
+              echo ''
+            displayName: Debug - Output Parameters

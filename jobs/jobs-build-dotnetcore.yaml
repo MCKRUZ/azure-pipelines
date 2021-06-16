@@ -1,0 +1,71 @@
+# Parameters
+# ---------
+parameters:
+- name: publishableProjects
+  type: string
+- name: buildableProjects
+  type: string
+- name: buildConfiguration
+  type: string
+- name: dotNetArtifactName
+  type: string
+- name: buildCode
+  type: boolean
+  default: true
+
+# Jobs
+# ---------
+jobs:
+
+# Job - Build DotNet Core
+# ---------
+- job: '${{ parameters.dotNetArtifactName }}'
+  displayName: Build DotNet Core
+  steps:
+
+# Bash - Show Parameter Variables
+# ---------
+  - bash: |
+      echo ''
+      echo '===== Build DotNet ====='
+      echo ''
+      echo '    ===== Parameters ====='
+      echo '    buildableProjects:          ${{ parameters.buildableProjects }}'
+      echo '    publishableProjects:        ${{ parameters.publishableProjects }}'
+      echo '    dotNetArtifactName:         ${{ parameters.dotNetArtifactName }}'
+      echo '    buildConfiguration:         ${{ parameters.buildConfiguration }}'
+      echo '    buildCode:                  ${{ parameters.buildCode }}'
+      echo ''
+    displayName: Debug - Parameters
+
+# Task - Build DotNet Projects
+# ---------
+  - task: DotNetCoreCLI@2
+    displayName: Build Projects
+    condition: eq(${{ parameters.buildCode }}, 'true')
+    inputs:
+      command: 'build'
+      projects: '${{ parameters.buildableProjects }}'
+      arguments: '--configuration ${{ parameters.buildConfiguration }}'
+
+# Task - Publish Build Artifacts
+# ---------
+  - task: DotNetCoreCLI@2
+    displayName: Archive Files into a Zip File
+    condition: or(succeeded(), eq(${{ parameters.buildCode }}, 'false'))
+    inputs:
+      command: 'publish'
+      publishWebProjects: false
+      projects: '${{ parameters.publishableProjects }}'
+      arguments: '--configuration ${{ parameters.buildConfiguration }} --output $(Build.ArtifactStagingDirectory)'
+      zipAfterPublish: true
+      modifyOutputPath: true
+
+# Task - Create Build Artifacts
+# ---------
+  - task: PublishBuildArtifacts@1
+    displayName: Publish Files into Artifact Directory
+    condition: or(succeeded(), eq(${{ parameters.buildCode }}, 'false'))
+    inputs:
+      pathtoPublish: '$(Build.ArtifactStagingDirectory)'  
+      artifactName: '${{ parameters.dotNetArtifactName }}'

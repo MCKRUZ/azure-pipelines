@@ -1,0 +1,48 @@
+# Parameters
+# ---------
+parameters:
+- name: environment
+  type: string
+- name: serviceConnection
+  type: string
+- name: webAppName
+  type: string
+
+# Jobs
+# ---------
+jobs:
+
+# Job - Deploy Web API
+# ---------
+- deployment: WebAPIDeploy
+  dependsOn: ${{ parameters.dependsOn }}
+  displayName: Deploy Web API
+  environment: ${{ parameters.environment }}
+  workspace:
+    clean: all
+  strategy:
+    runOnce:
+      deploy:
+        steps:  
+
+        # Bash - Show Parameter Variables
+        # ---------
+          - bash: |
+              echo ''
+              echo '===== Deploy Web API ====='
+              echo ''
+              echo '    ===== Parameters ====='
+              echo '    environment:              ${{ parameters.environment }}'
+              echo '    serviceConnection:        ${{ parameters.serviceConnection }}'
+              echo '    webAppName:               ${{ parameters.webAppName }}'
+              echo ''
+            displayName: Debug - Parameters
+
+        # Task - Azure Web API Deploy
+        # ---------
+          - task: AzureWebApp@1
+            displayName: Azure Web API Deploy
+            inputs:
+              azureSubscription:  '${{ parameters.serviceConnection }}'
+              appName: '${{ parameters.webAppName }}'
+              package: $(System.DefaultWorkingDirectory)/**/*.zip

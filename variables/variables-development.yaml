@@ -1,0 +1,50 @@
+# These variable values are placeholders, put your own in as needed
+variables:
+  # General
+  environment:                        Development
+  #deploymentLocation:                 eastus    
+
+  # ARM Template
+  #resourceGroup:                      rg-webapp-dev-001
+
+  ## Storage Account
+  #storageAccountName:                 ststaticwebdev001   
+  #storageAccountCSMFilePath:          storageaccountdeploy.json
+  #storageAccountCSMParametersFile:    storageaccountdeploy.parameters.dev.json
+
+  ## App Service
+  #appServiceCSMFilePath:              appservicedeploy.json
+  #appServiceCSMParametersFile:        appservicedeploy.parameters.dev.json
+
+  ## CDN
+  #cdnProfileName:                     cdnp-webapp-dev-001
+  #cdnEndpointName:                    cdne-webapp-dev-001
+  #cdnCSMFilePath:                     cdndeploy.json
+  #cdnCSMParametersFile:               cdndeploy.parameters.dev.json
+
+  #serviceConnection:                  webapp-rg-dev-conn
+  #subscriptionId:                     00000000-0000-0000-0000-000000000000
+  #webAppName:                         app-webapp-dev-001
+
+  # Dot Net CLI
+  buildConfiguration:                 Debug
+
+
+
+
+
+  # Testing
+  serviceConnection:   sc-matt-kruczek-dev-001
+  subscriptionId:      00000000-0000-0000-0000-000000000000
+  resourceGroup:       rg-matt-kruczek-dev-001
+  deploymentLocation:  eastus
+  storageAccountName:  mkstaticweb         
+  cdnProfileName:      mkstaticweb
+  cdnEndpointName:     mkstaticweb
+  webAppName:          app-webapp-dev-06012021
+  storageAccountCSMFilePath:         storageaccountdeploy.json
+  storageAccountCSMParametersFile:   storageaccountdeploy.parameters.dev.json
+  cdnCSMFilePath:                    cdndeploy.json
+  cdnCSMParametersFile:              cdndeploy.parameters.dev.json
+  appServiceCSMFilePath:              appservicedeploy.json
+  appServiceCSMParametersFile:        appservicedeploy.parameters.dev.json
