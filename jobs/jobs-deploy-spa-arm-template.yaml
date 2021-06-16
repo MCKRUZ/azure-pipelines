@@ -113,19 +113,11 @@ jobs:
                  $armOutput = '$(storageAccountDeploymentOutput)' | ConvertFrom-Json
                  Write-Output "##vso[task.setvariable variable=storageAccountNameCalculated;]$($armOutput.storageAccountName.value)"
 
+          - script: echo "##vso[task.setvariable variable=myOutputVar;isOutput=true]this is the deployment variable value"
+            name: setvarStep
 
-          - template: steps/set-custom-variable.yml@templates
-            parameters:
-               variableName: myOutputVar
-               command: 'this is the deployment variable value'
-
-          #- script: echo "##vso[task.setvariable variable=myOutputVar;isOutput=true]this is the deployment variable value"
-          #  name: setvarStep
-
-          #- script: echo $(setvarStep.myOutputVar)
-          #  name: echovar
-
-
+          - script: echo $(setvarStep.myOutputVar)
+            name: echovar
 
         # Task - Add Static Hosting to Storage Account
         # ---------
